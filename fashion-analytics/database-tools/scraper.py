@@ -5,28 +5,7 @@ import time
 from bs4 import BeautifulSoup
 from selenium import webdriver
 
-
-def get_links_dictionary(page_soup):
-    """
-    Returns a dictionary of all categories, subcategories and their url
-    attributes.
-    
-    Does not need to be called directly.
-    """
-    all_cat=page_soup.find_all('div',{'class':'universal-filter-category'})
-    all_sub={}
-    for i in all_cat:
-        subcat={}
-        for l in i.find('div',{'class':'universal-filter-category__children'}).find_all('label'):
-            subcat[l.text.strip('\n ')]={'link':l.find('input').get('value')}
-        sub_dic = {
-            "link":i.find('input').get('value'),
-            "subcat":subcat
-        }
-        all_sub[i.find('label').text.strip('\n ')] = sub_dic
-    return all_sub
-
-def get_list_links(url:str):
+def get_list_links(browser,url:str):
     """
     Returns the full list of category, subcategory and link, in the form of a
     list of tuples of form:
@@ -36,18 +15,30 @@ def get_list_links(url:str):
     The link voluntarily omits https://www.lyst.com.
     """
     browser.get(url)
+    browser.find_element_by_id("Clothing")
     page_soup_xml=BeautifulSoup(browser.page_source,'lxml')
-    
-    dict=get_links_dictionary(page_soup_xml)
+
+    all_cat = page_soup_xml.find('div', {'class': 'universal-filter-category'}).find_all('div', {'class': 'universal-filter-category'})
+    all_sub = {}
+    for i in all_cat:
+        subcat = {}
+        for l in i.find('div', {'class': 'universal-filter-category__children'}).find_all('label'):
+            subcat[l.text.strip('\n ')] = {'link': l.find('input').get('value')}
+        sub_dic = {
+            "link": i.find('input').get('value'),
+            "subcat": subcat
+        }
+        all_sub[i.find('label').text.strip('\n ')] = sub_dic
+
     list_links=[]
-    for category in dict:
-        for subcategory in dict[category]['subcat']:
+    for category in all_sub:
+        for subcategory in all_sub[category]['subcat']:
             list_links.append((category,subcategory,
-                   "/shop/mens-clothing/?category="+dict[category]['link']+
-                  "&subcategory="+"+".join(dict[category]['subcat'][subcategory]['link'].split(" "))))
+                   url+"?category="+all_sub[category]['link']+
+                  "&subcategory="+"+".join(all_sub[category]['subcat'][subcategory]['link'].split(" "))))
     return list_links
 
-def get_to_bottom_page():
+def get_to_bottom_page(browser):
     """
     Returns the full page (scrolled to the bottom). The page
     returned is in XML format.
@@ -82,7 +73,7 @@ def write_in_file(name_of_file:str,content):
     file.close()
     print("Saving in file successful!")
 
-def save_lyst_subcategory_page(cat_tuple):
+def save_lyst_subcategory_page(browser,cat_tuple):
     """
     This function needs an instance of a Selenium Webdriver called browser
     to be open.
@@ -101,11 +92,11 @@ def save_lyst_subcategory_page(cat_tuple):
     """
     print("Loading the page "+cat_tuple[1]+"...")
     browser.get('https://www.lyst.com'+cat_tuple[2])
-    get_to_bottom_page()
+    get_to_bottom_page(browser)
     time.sleep(5)
-    get_to_bottom_page()
+    get_to_bottom_page(browser)
     time.sleep(5)
-    get_to_bottom_page()
+    get_to_bottom_page(browser)
     name_file_subcat='_'.join(cat_tuple[1].split(' ')).lower()+".webpage"
     write_in_file(name_file_subcat,browser.page_source)
     print('\n\n')
@@ -121,9 +112,9 @@ def get_soup_from_file(filename:str):
     return page_soup_xml
 
 def scrape_all_category_pages(url):
-	browser = webdriver.PhantomJS(executable_path='/Applications/phantomjs')
-	list_length=[]
-	list_links=get_list_links(url)
-	for subcat in list_links:
-    	curr=save_lyst_subcategory_page(subcat)
-    	list_length.append((subcat[2],curr))
+    browser = webdriver.PhantomJS(executable_path='/Applications/phantomjs')
+    list_length=[]
+    list_links=get_list_links(browser,url)
+    for subcat in list_links:
+        curr=save_lyst_subcategory_page(browser,subcat)
+        list_length.append((subcat[2],curr))
