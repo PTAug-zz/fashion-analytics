@@ -2,7 +2,9 @@ import time
 from utils import *
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from collections import namedtuple
 
+Category = namedtuple('Category', 'category subcategory link')
 
 class Scraper:
     def __init__(self):
@@ -11,7 +13,7 @@ class Scraper:
         self.browser.implicitly_wait(15)  # seconds
         self.browser.get('https://www.lyst.com/shop/mens/')
 
-    def get_list_links(self,url:str):
+    def get_list_links_brand(self,url:str):
         """
         Returns the full list of category, subcategory and link, in the form of a
         list of tuples of form:
@@ -43,8 +45,8 @@ class Scraper:
         list_links=[]
         for category in all_sub:
             for subcategory in all_sub[category]['subcat']:
-                list_links.append((category,subcategory,url+"?category="+
-                    all_sub[category]['link']+"&subcategory="+
+                list_links.append(Category(category,subcategory,url+
+                    "?category="+all_sub[category]['link']+"&subcategory="+
                     "+".join(all_sub[category]['subcat'][subcategory]
                                                     ['link'].split(" "))))
         return list_links
@@ -76,7 +78,7 @@ class Scraper:
             last_height = new_height
         print("Finished")
 
-    def save_lyst_subcategory_page(self,cat_tuple):
+    def save_lyst_subcategory_page(self,cat_obj:Category):
         """
         This function needs an instance of a Selenium Webdriver called browser
         to be open.
@@ -93,24 +95,25 @@ class Scraper:
         cat_tuple is a tuple (category, subcategory, link) returned
         by the get_list_links function.
         """
-        print("Loading the page "+cat_tuple[1]+"...")
-        self.browser.get('https://www.lyst.com'+cat_tuple[2])
+        print("Loading the page "+cat_obj.subcategory+"...")
+        self.browser.get(cat_obj.link)
         self.get_to_bottom_page()
         time.sleep(5)
         self.get_to_bottom_page()
         time.sleep(5)
         self.get_to_bottom_page()
-        name_file_subcat='_'.join(cat_tuple[1].split(' ')).lower()+".webpage"
+        name_file_subcat='_'.join(cat_obj.subcategory.split(' ')).lower()\
+                         +".webpage"
         write_in_file(name_file_subcat,self.browser.page_source)
         print('\n\n')
         return self.browser.execute_script("return document.body.scrollHeight")
 
     def scrape_all_category_pages(self,url):
         list_length=[]
-        list_links=self.get_list_links(url)
+        list_links=self.get_list_links_brand(url)
         for subcat in list_links:
             curr=self.save_lyst_subcategory_page(subcat)
-            list_length.append((subcat[2],curr))
+            list_length.append((subcat.link,curr))
 
     def __del__(self):
         print("Scraper object deleted, closing the browser...")

@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 
+
 def write_in_file(name_of_file: str, content):
     """
     Writes the content in a file of name name_of_file.
