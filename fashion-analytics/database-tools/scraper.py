@@ -115,6 +115,37 @@ class Scraper:
             curr=self.save_lyst_subcategory_page(subcat)
             list_length.append((subcat.link,curr))
 
+    def create_products_records(self,cat_obj:Category):
+        self.browser.get(cat_obj.link)
+        self.get_to_bottom_page()
+        time.sleep(5)
+        self.get_to_bottom_page()
+        time.sleep(5)
+        self.get_to_bottom_page()
+        page_soup_xml = BeautifulSoup(self.browser.page_source,'lxml')
+        articles_record=list()
+        for prod in page_soup_xml.find('div',
+                    {'class':'product-feed__segment-items'}).find_all('div',
+                                                  {'class':'product-card'}):
+            dic=dict()
+            dic['short_description']=prod.find('div',
+                                          {"itemprop":"name"}).get_text()
+            dic['brand']=prod.find('div',
+                        {"class":"product-card__designer"}).get_text().strip()
+            dic['mens-women']='mens'
+            dic['category']=cat_obj.category
+            dic['subcategory']=cat_obj.subcategory
+            dic['url']='https://www.lyst.com'+prod.find('a',
+                                          {"itemprop":"url"}).get('href')
+            dic['image-url'] = prod.find('img',
+                                        {"itemprop": "image"}).get('src')
+            dic['currency'] = prod.find('link',
+                                {"itemprop": "priceCurrency"}).get('content')
+            dic['price'] = prod.find('link',
+                                {"itemprop": "price"}).get('content')
+            articles_record.append(dic)
+        return articles_record
+
     def __del__(self):
         print("Scraper object deleted, closing the browser...")
         self.browser.quit()
