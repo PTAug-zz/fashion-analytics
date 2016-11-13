@@ -3,6 +3,7 @@ from utils import *
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from collections import namedtuple
+from dynamointerface import *
 
 Category = namedtuple('Category', 'category subcategory link')
 
@@ -12,6 +13,10 @@ class Scraper:
                                         '/Applications/geckodriver')
         self.browser.implicitly_wait(15)  # seconds
         self.browser.get('https://www.lyst.com/shop/mens/')
+
+    def connect_database(self,name):
+        self.fdb = FashionDatabase(name)
+        self.fdb.connect()
 
     def get_list_links_brand(self,url:str):
         """
@@ -147,6 +152,13 @@ class Scraper:
                 articles_record.append(dic)
         return articles_record
 
+    def scrape_brand(self,url):
+        tuple_list = self.get_list_links_brand(url)
+        for cat_brand in tuple_list:
+            prod_dics = self.create_products_records(cat_brand)
+            for d in prod_dics:
+                self.fdb.add_item(d)
+
     def __del__(self):
         print("Scraper object deleted, closing the browser...")
-        #self.browser.quit()
+        self.browser.quit()
