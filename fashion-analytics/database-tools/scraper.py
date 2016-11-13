@@ -1,7 +1,8 @@
 import time
 from utils import *
 from bs4 import BeautifulSoup
-from selenium import webdriver
+import selenium
+from selenium import webdriver,common
 from collections import namedtuple
 from dynamointerface import *
 
@@ -9,7 +10,7 @@ Category = namedtuple('Category', 'category subcategory link')
 
 class Scraper:
     def __init__(self):
-        self.browser= webdriver.Firefox(executable_path=
+        self.browser= selenium.webdriver.Firefox(executable_path=
                                         '/Applications/geckodriver')
         self.browser.implicitly_wait(15)  # seconds
         self.browser.get('https://www.lyst.com/shop/mens/')
@@ -28,7 +29,12 @@ class Scraper:
         The link voluntarily omits https://www.lyst.com.
         """
         self.browser.get(url)
-        self.browser.find_element_by_id("Clothing")
+        try:
+            self.browser.find_element_by_id("Clothing")
+        except selenium.common.exceptions.NoSuchElementException as err:
+            print(err)
+            print('No Clothing section to get categories from. Aborting.')
+            return None
         page_soup_xml=BeautifulSoup(self.browser.page_source,'lxml')
 
         all_cat = page_soup_xml.find('div',
@@ -154,10 +160,13 @@ class Scraper:
 
     def scrape_brand(self,url):
         tuple_list = self.get_list_links_brand(url)
+        if tuple_list is None:
+            return "Can't scrape this brand. Check if there's a Clothing id."
         for cat_brand in tuple_list:
             prod_dics = self.create_products_records(cat_brand)
             for d in prod_dics:
                 self.fdb.add_item(d)
+        return 'OK'
 
     def __del__(self):
         print("Scraper object deleted, closing the browser...")
