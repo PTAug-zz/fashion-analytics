@@ -161,12 +161,12 @@ class Scraper:
     def scrape_brand(self,url):
         tuple_list = self.get_list_links_brand(url)
         if tuple_list is None:
-            return "Can't scrape this brand. Check if there's a Clothing id."
+            return "Can't scrape"+url+". Check if there's a Clothing id."
         for cat_brand in tuple_list:
             prod_dics = self.create_products_records(cat_brand)
             for d in prod_dics:
                 self.fdb.add_item(d)
-        return 'OK'
+        return 'OK '+url
 
     def __del__(self):
         print("Scraper object deleted, closing the browser...")
