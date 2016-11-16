@@ -3,15 +3,26 @@ from utils import *
 from bs4 import BeautifulSoup
 import selenium
 from selenium import webdriver,common
+from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
+from pyvirtualdisplay import Display
 from collections import namedtuple
 from dynamointerface import *
 
 Category = namedtuple('Category', 'category subcategory link')
 
 class Scraper:
-    def __init__(self):
-        self.browser= selenium.webdriver.Firefox(executable_path=
+    def __init__(self,config='AWS'):
+        if config == 'MAC':
+            self.browser= selenium.webdriver.Firefox(executable_path=
                                         '/Applications/geckodriver')
+        if config == 'AWS':
+            self.display = Display(visible=0,size=(1900,1200))
+            self.display.start()
+            binary = FirefoxBinary('/home/ec2-user/firefox/firefox')
+            self.browser=webdriver.Firefox(firefox_binary=binary,
+                            executable_path='/home/ec2-user/geckodriver')
+        else:
+            raise ValueError('The config does not exist.')
         self.browser.implicitly_wait(15)  # seconds
         self.browser.get('https://www.lyst.com/shop/mens/')
 
@@ -32,7 +43,6 @@ class Scraper:
         try:
             self.browser.find_element_by_id("Clothing")
         except selenium.common.exceptions.NoSuchElementException as err:
-            print(err)
             print('No Clothing section to get categories from. Aborting.')
             return None
         page_soup_xml=BeautifulSoup(self.browser.page_source,'lxml')
@@ -108,8 +118,6 @@ class Scraper:
         """
         print("Loading the page "+cat_obj.subcategory+"...")
         self.browser.get(cat_obj.link)
-        self.get_to_bottom_page()
-        time.sleep(5)
         self.get_to_bottom_page()
         time.sleep(5)
         self.get_to_bottom_page()
