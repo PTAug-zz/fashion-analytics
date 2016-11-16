@@ -1,5 +1,4 @@
 import time
-from utils import *
 from bs4 import BeautifulSoup
 import selenium
 from selenium import webdriver,common
@@ -11,7 +10,27 @@ from dynamointerface import *
 Category = namedtuple('Category', 'category subcategory link')
 
 class Scraper:
+
+    """Lyst scraping interface class.
+
+    This class automates the scraping of the Lyst fashion website
+    and the optional update of an AWS DynamoDB fashion articles
+    database. The `scrape_brand` function scrapes a brand located
+    at the given url, and puts the articles on the database.
+
+    .. warning:: If the interface with AWS is used, AWS has to be
+    configured. Run ``aws configure`` in a shell.
+    """
+
     def __init__(self,config='AWS'):
+        """Construct a Scraper object according to the config given.
+
+        If the config is 'AWS' (default), sets up the in-class
+        browser for AWS, if 'MAC', sets up the object for a mac.
+
+        :param config: system used, 'MAC' or 'AWS' (default)
+        :type config: str
+        """
         if config == 'MAC':
             self.browser= selenium.webdriver.Firefox(executable_path=
                                         '/Applications/geckodriver')
@@ -26,18 +45,20 @@ class Scraper:
         self.browser.implicitly_wait(15)  # seconds
         self.browser.get('https://www.lyst.com/shop/mens/')
 
-    def connect_database(self,name):
+    def connect_database(self,name='fashion-items'):
+        """Connect to the database of given :param name:"""
         self.fdb = FashionDatabase(name)
         self.fdb.connect()
 
     def get_list_links_brand(self,url:str):
-        """
-        Returns the full list of category, subcategory and link, in the form of a
-        list of tuples of form:
+        """Get all categories and subcategories of a brand
 
-        (category, subcategory, link)
+        Returns the full list of Category objects for the
+        brand of which the url on Lyst is given.
 
-        The link voluntarily omits https://www.lyst.com.
+        :param url: URL of the brand on Lyst
+        :return: list of Category for the brand.
+        :rtype: list of Category
         """
         self.browser.get(url)
         try:
@@ -73,18 +94,13 @@ class Scraper:
         return list_links
 
     def get_to_bottom_page(self):
-        """
-        Returns the full page (scrolled to the bottom). The page
-        returned is in XML format.
+        """Scroll to the bottom of the current page.
 
-        The input url should omit www.lyst.com. (www.lyst.com[/url])
-
-        This function still has some problems, sometimes it doesn't
-        fully scroll to the bottom. It can do it, but I still have to
-        debug it, it's a weird error.
+        Scroll to the bottom of the page loaded in the in-class
+        browser.
         """
         import numpy as np
-        print("Trying to get to bottom of "+self.browser.current_url)
+        print("Scrolling to the bottom of "+self.browser.current_url)
         last_height = self.browser.execute_script(
                                     "return document.body.scrollHeight")
         while True:
@@ -93,57 +109,34 @@ class Scraper:
             time.sleep(np.random.uniform(3,3.5))
             new_height = self.browser.execute_script("return "
                                                 "document.body.scrollHeight")
-            print("Length of page: "+str(last_height)+" -> "+str(new_height))
+            print("Length of page: "+str(last_height)+" -> "+str(new_height),
+                  end='\r')
             if new_height == last_height:
                 break
             last_height = new_height
-        print("Finished")
-
-    def save_lyst_subcategory_page(self,cat_obj:Category):
-        """
-        This function needs an instance of a Selenium Webdriver called browser
-        to be open.
-
-        It takes the input tuple of a subcategory, loads the page from Lyst,
-        goes to the bottom of the page (with the function get_to_bottom_page
-        executed three times because it sometimes randomly stops), and save
-        the whole html of the page in a .webpage file named after the
-        subcategory.
-
-        It also returns the final length of the webpage as a metric to know if
-        the scrolling went well.
-
-        cat_tuple is a tuple (category, subcategory, link) returned
-        by the get_list_links function.
-        """
-        print("Loading the page "+cat_obj.subcategory+"...")
-        self.browser.get(cat_obj.link)
-        self.get_to_bottom_page()
-        time.sleep(5)
-        self.get_to_bottom_page()
-        name_file_subcat='_'.join(cat_obj.subcategory.split(' ')).lower()\
-                         +".webpage"
-        write_in_file(name_file_subcat,self.browser.page_source)
-        print('\n\n')
-        return self.browser.execute_script("return document.body.scrollHeight")
-
-    def scrape_all_category_pages(self,url):
-        list_length=[]
-        list_links=self.get_list_links_brand(url)
-        for subcat in list_links:
-            curr=self.save_lyst_subcategory_page(subcat)
-            list_length.append((subcat.link,curr))
 
     def create_products_records(self,cat_obj:Category):
+        """Get all articles of given Category object.
+
+        The dictionaries returned (one for each product) contain the
+        following attributes: `short_description`, `brand`, `url`
+        `men-women`, `category`, `subcategory`, `image-url`,
+        `currency`, `price`.
+
+        :param cat_obj: Category object from which to get articles.
+        :type cat_obj: Category
+        :return: list of dict, each containing a product's attributes
+        :rtype: list of dict
+        """
         self.browser.get(cat_obj.link)
         self.get_to_bottom_page()
         time.sleep(5)
         self.get_to_bottom_page()
         time.sleep(5)
-        self.get_to_bottom_page()
         page_soup_xml = BeautifulSoup(self.browser.page_source,'lxml')
         articles_record=list()
-        pcards=page_soup_xml.find('div',{'class':'product-feed__segment-items'})
+        pcards=page_soup_xml.find('div',{'class':
+                                             'product-feed__segment-items'})
         if pcards is not None:
             for prod in pcards.find_all('div',{'class':'product-card'}):
                 if not prod.find('span',
@@ -167,6 +160,20 @@ class Scraper:
         return articles_record
 
     def scrape_brand(self,url):
+        """Scrape a brand and put its articles in the database.
+
+        Puts every product of a brand in the connected database,
+        and returns a log message to know if some items of the
+        brand are effectively put in the database.
+
+        :param url: URL of the brand on Lyst
+        :type url: str
+        :return: debug string, signals the absence of products
+        :rtype: str
+
+        .. note:: the database has to be connected to run this
+            method.
+        """
         tuple_list = self.get_list_links_brand(url)
         if tuple_list is None:
             return "Can't scrape"+url+". Check if there's a Clothing id."
@@ -178,5 +185,6 @@ class Scraper:
         return 'OK '+url
 
     def __del__(self):
+        """Close the browser when finished"""
         print("Scraper object deleted, closing the browser...")
         self.browser.quit()
