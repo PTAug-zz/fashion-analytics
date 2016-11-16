@@ -172,8 +172,9 @@ class Scraper:
             return "Can't scrape"+url+". Check if there's a Clothing id."
         for cat_brand in tuple_list:
             prod_dics = self.create_products_records(cat_brand)
-            for d in prod_dics:
-                self.fdb.add_item(d)
+            if not prod_dics:
+                for d in prod_dics:
+                    self.fdb.add_item(d)
         return 'OK '+url
 
     def __del__(self):
