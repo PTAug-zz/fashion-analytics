@@ -143,27 +143,27 @@ class Scraper:
         self.get_to_bottom_page()
         page_soup_xml = BeautifulSoup(self.browser.page_source,'lxml')
         articles_record=list()
-        for prod in page_soup_xml.find('div',
-                    {'class':'product-feed__segment-items'}).find_all('div',
-                                                  {'class':'product-card'}):
-            if not prod.find('span',
+        pcards=page_soup_xml.find('div',{'class':'product-feed__segment-items'})
+        if pcards is not None:
+            for prod in pcards.find_all('div',{'class':'product-card'}):
+                if not prod.find('span',
                              {'class':'product-card__sold-out-message'}):
-                dic=dict()
-                dic['short_description']=prod.find('div',
+                    dic=dict()
+                    dic['short_description']=prod.find('div',
                                           {"itemprop":"name"}).get_text()
-                dic['brand']=prod.find('div',
+                    dic['brand']=prod.find('div',
                         {"class":"product-card__designer"}).get_text().strip()
-                dic['men-women']='men'
-                dic['category']=cat_obj.category
-                dic['subcategory']=cat_obj.subcategory
-                dic['url']='https://www.lyst.com'+prod.find('a',
+                    dic['men-women']='men'
+                    dic['category']=cat_obj.category
+                    dic['subcategory']=cat_obj.subcategory
+                    dic['url']='https://www.lyst.com'+prod.find('a',
                                           {"itemprop":"url"}).get('href')
-                dic['image-url'] = prod.find('img').get('image-src')
-                dic['currency'] = prod.find('link',
+                    dic['image-url'] = prod.find('img').get('image-src')
+                    dic['currency'] = prod.find('link',
                                 {"itemprop": "priceCurrency"}).get('content')
-                dic['price'] = prod.find('link',
+                    dic['price'] = prod.find('link',
                                 {"itemprop": "price"}).get('content')
-                articles_record.append(dic)
+                    articles_record.append(dic)
         return articles_record
 
     def scrape_brand(self,url):
