@@ -16,7 +16,9 @@ class Scraper:
     This class automates the scraping of the Lyst fashion website
     and the optional update of an AWS DynamoDB fashion articles
     database. The `scrape_brand` function scrapes a brand located
-    at the given url, and puts the articles on the database.
+    at the given url, and puts the articles on the database. The
+    `create_products_record` function gives a list of products
+    as dictionaries.
 
     .. warning:: If the interface with AWS is used, AWS has to be
     configured. Run ``aws configure`` in a shell.
@@ -48,7 +50,6 @@ class Scraper:
     def connect_database(self,name='fashion-items'):
         """Connect to the database of given :param name:"""
         self.fdb = FashionDatabase(name)
-        self.fdb.connect()
 
     def get_list_links_brand(self,url:str):
         """Get all categories and subcategories of a brand
